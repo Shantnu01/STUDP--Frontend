@@ -352,6 +352,16 @@ export default function Staff() {
             </div>
 
             <div className="p-6 pt-0 flex gap-3 justify-end border-t border-[var(--border)] mt-2">
+              {editTarget && (
+                <button 
+                  onClick={() => { setShowModal(false); setDeleteConfirm(editTarget.id); }} 
+                  className="btn btn-ghost px-4 py-2.5 mr-auto text-[var(--red)] hover:bg-[var(--red)]/10 flex items-center justify-center" 
+                  title="Delete Staff"
+                  disabled={saving}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => setShowModal(false)} className="btn btn-ghost px-5 py-2.5" disabled={saving}>Cancel</button>
               <button onClick={handleSave} disabled={!form.name.trim() || !form.work.trim() || saving}
                 className="flex items-center gap-2 bg-[var(--accent)] text-black font-bold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm">

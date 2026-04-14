@@ -8,7 +8,7 @@ import MessagingPanel from '@/components/MessagingPanel'
 import SchoolModal from '@/components/modals/SchoolModal'
 import {
   LayoutDashboard, School, BarChart2, CreditCard, FileText,
-  ClipboardList, Settings, MessageSquare, LogOut, Plus, Download,
+  ClipboardList, Settings, MessageSquare, LogOut, Plus, Download, Menu,
 } from 'lucide-react'
 import { initials, exportCSV } from '@/lib/utils'
 
@@ -32,6 +32,7 @@ export default function AdminLayout() {
   const [msgOpen, setMsgOpen] = useState(false)
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
   const [addSchoolOpen, setAddSchoolOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const { totalUnread } = useAdminGlobalChat(schools)
 
@@ -67,11 +68,19 @@ export default function AdminLayout() {
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '12px 0', gap: 3,
       }}>
-        <div style={{
-          width: 30, height: 30, background: 'var(--accent)', borderRadius: 8,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-        }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#000' }}>E</span>
+        <div 
+          onClick={() => setSidebarOpen(v => !v)}
+          title="Toggle Sidebar"
+          style={{
+            width: 30, height: 30, background: 'var(--accent)', borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+            cursor: 'pointer', transition: 'transform 0.15s ease'
+          }}
+          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.9)')}
+          onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          <Menu size={16} color="#000" />
         </div>
 
         {NAV.map(({ path, icon: Icon, label }) => (
@@ -137,10 +146,11 @@ export default function AdminLayout() {
 
       {/* ── SIDEBAR ──────────────────────────────────────────── */}
       <div style={{
-        width: 200, flexShrink: 0, background: 'var(--bg2)',
-        borderRight: '1px solid var(--border)',
-        display: 'flex', flexDirection: 'column',
+        width: sidebarOpen ? 200 : 0, flexShrink: 0, background: 'var(--bg2)',
+        borderRight: sidebarOpen ? '1px solid var(--border)' : 'none',
+        overflow: 'hidden', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', display: 'flex', flexDirection: 'column'
       }}>
+        <div style={{ width: 200, display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
         <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>EduSync</div>
           <div style={{ fontSize: 11, color: 'var(--txt2)', marginTop: 2, fontFamily: 'DM Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -216,6 +226,7 @@ export default function AdminLayout() {
           >
             <LogOut size={12} /> Sign out
           </button>
+        </div>
         </div>
       </div>
 

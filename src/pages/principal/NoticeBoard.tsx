@@ -201,51 +201,40 @@ export default function NoticeBoard() {
             <div
               key={notice.id}
               onClick={() => handleView(notice)}
-              className={`card p-5 cursor-pointer hover:-translate-y-1 transition-all group relative ${notice.pinned ? 'ring-1 ring-[var(--accent)]/40' : ''}`}
+              className="card overflow-hidden cursor-pointer hover:border-[var(--accent)]/40 transition-all p-0"
             >
-              {/* Pinned badge */}
-              {notice.pinned && (
-                <div className="absolute top-3 right-3">
-                  <Pin className="w-4 h-4 text-[var(--accent)] fill-[var(--accent)]" />
-                </div>
-              )}
-
-              {/* Priority badge */}
-              <div className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border mb-3 ${cfg.cls} ${cfg.bg}`}>
-                <Icon className="w-3 h-3" />
-                {cfg.label}
-              </div>
-
-              <h3 className="font-bold text-[var(--txt)] leading-tight mb-2 group-hover:text-white transition-colors pr-6">
-                {notice.title}
-              </h3>
-              <p className="text-xs text-[var(--txt2)] leading-relaxed line-clamp-3 mb-4">
-                {notice.body}
-              </p>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border capitalize ${AUDIENCE_COLORS[notice.audience]}`}>
+              <div style={{ height: 4, background: notice.pinned ? 'var(--accent)' : 'transparent' }} />
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border border-white/5 uppercase tracking-wider ${AUDIENCE_COLORS[notice.audience]}`}>
                     {notice.audience}
                   </span>
+                  <div className="flex items-center gap-2 text-[var(--txt3)]">
+                    <span className="text-[10px] font-mono">{notice.date}</span>
+                    {notice.pinned && <Pin className="w-3 h-3 text-[var(--accent)] fill-[var(--accent)]" />}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-[var(--txt3)]">
-                  <span className="flex items-center gap-1 text-[11px]">
-                    <Eye className="w-3 h-3" /> {notice.views}
-                  </span>
-                  <span className="text-[11px] mono">{notice.date}</span>
-                  <button
-                    onClick={e => { e.stopPropagation(); togglePin(notice.id); }}
-                    className={`p-1 rounded-lg hover:bg-[var(--bg3)] transition-colors ${notice.pinned ? 'text-[var(--accent)]' : ''}`}
-                  >
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDelete(notice.id); }}
-                    className="p-1 rounded-lg hover:bg-rose-400/10 hover:text-rose-400 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+
+                <h3 className="font-bold text-[var(--txt)] leading-snug mb-2 group-hover:text-white transition-colors">
+                  {notice.title}
+                </h3>
+                <p className="text-xs text-[var(--txt2)] leading-relaxed line-clamp-2 mb-4">
+                  {notice.body}
+                </p>
+
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                  <div className={`flex items-center gap-1.5 text-[10px] font-bold ${cfg.cls.split(' ')[0]}`}>
+                    <Icon className="w-3 h-3" />
+                    {cfg.label}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDelete(notice.id); }}
+                      className="p-1.5 rounded-lg hover:bg-rose-400/10 hover:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

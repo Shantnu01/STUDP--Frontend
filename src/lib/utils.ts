@@ -67,3 +67,61 @@ export function exportCSV(rows: any[], filename: string) {
   a.download = filename
   a.click()
 }
+
+// ── Teacher-specific utilities ─────────────────────────────────────────────
+
+export function fmtDateShort(v: any): string {
+  if (!v) return '—'
+  try {
+    const d = v?.toDate ? v.toDate() : new Date(v)
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  } catch { return String(v) }
+}
+
+export function fmtDateTime(v: any): string {
+  if (!v) return '—'
+  try {
+    const d = v?.toDate ? v.toDate() : new Date(v)
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' ' +
+           d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+  } catch { return String(v) }
+}
+
+export function gradeFromMarks(obtained: number, max: number): string {
+  const pct = max > 0 ? (obtained / max) * 100 : 0
+  if (pct >= 90) return 'A+'; if (pct >= 80) return 'A'; if (pct >= 70) return 'B+'
+  if (pct >= 60) return 'B'; if (pct >= 50) return 'C'; if (pct >= 35) return 'D'; return 'F'
+}
+
+export function gradeColor(grade: string): string {
+  return ({ 'A+': '#6ee7b7', A: '#22c55e', 'B+': '#60a5fa', B: '#3b82f6', C: '#fbbf24', D: '#f59e0b', F: '#ef4444' } as any)[grade] ?? '#888'
+}
+
+export function attendanceColor(status: string) {
+  return ({ present: '#22c55e', absent: '#ef4444', late: '#f59e0b', excused: '#60a5fa' } as any)[status] ?? '#888'
+}
+
+export function subjectColor(subject: string): string {
+  const palette = ['#6ee7b7', '#60a5fa', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#fb923c', '#e879f9']
+  let h = 0; for (const c of subject) h = (h * 31 + c.charCodeAt(0)) % palette.length; return palette[h]
+}
+
+export function todayISO() { return new Date().toISOString().split('T')[0] }
+
+export function daysBetween(from: string, to: string): number {
+  return Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
+}
+
+export function statusBadgeClass(status: string): string {
+  const map: Record<string, string> = {
+    active: 'badge-green', present: 'badge-green', approved: 'badge-green', paid: 'badge-green', published: 'badge-green',
+    absent: 'badge-red', rejected: 'badge-red', failed: 'badge-red', suspended: 'badge-red',
+    late: 'badge-amber', overdue: 'badge-amber', pending: 'badge-amber', draft: 'badge-amber',
+    excused: 'badge-blue', inactive: 'badge-gray', closed: 'badge-gray', transferred: 'badge-gray',
+  }
+  return map[status] ?? 'badge-gray'
+}
+
+export function makeThreadId(uid1: string, uid2: string): string {
+  return [uid1, uid2].sort().join('_')
+}

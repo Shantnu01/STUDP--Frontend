@@ -18,6 +18,7 @@ const NAV_SECTIONS = [
       { icon: Users,           label: 'Students',     path: '/principal/students' },
       { icon: BookOpen,        label: 'Teachers',     path: '/principal/teachers' },
       { icon: UserRound,       label: 'Staff',        path: '/principal/staff' },
+      { icon: Inbox,           label: 'Leave Requests', path: '/principal/leave-requests' },
     ]
   },
   {

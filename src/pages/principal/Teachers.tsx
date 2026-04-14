@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, BookOpen, Mail, Phone, Plus, X, Save, UserRound, Edit, MessageCircle } from 'lucide-react';
+import { Search, BookOpen, Mail, Phone, Plus, X, Save, UserRound, Edit, MessageCircle, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -152,8 +152,8 @@ export default function Teachers() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.subject.trim() || !form.email.trim()) {
-      toast.error('Name, subject, and email are required');
+    if (!form.name.trim() || !form.subject.trim() || !form.email.trim() || !form.phone.trim()) {
+      toast.error('Name, subject, email, and phone number are strictly required');
       return;
     }
 
@@ -173,8 +173,11 @@ export default function Teachers() {
         await api.patch('/api/teachers/' + editTarget.id, payload);
         toast.success('Teacher updated successfully');
       } else {
-        await api.post('/api/teachers', payload);
-        toast.success('Teacher added successfully');
+        const res = await api.post('/api/teachers', payload);
+        toast.success(
+          `Teacher added securely!\nPassword: ${res.data.generatedPassword}`, 
+          { duration: 15000, style: { fontWeight: 'bold' } }
+        );
       }
 
       setShowModal(false);
@@ -183,6 +186,25 @@ export default function Teachers() {
       await fetchTeachers();
     } catch (error) {
       toast.error(getErrorMessage(error, editTarget ? 'Failed to update teacher' : 'Failed to add teacher'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (target?: Teacher) => {
+    const toDelete = target || editTarget;
+    if (!toDelete) return;
+    if (!confirm(`Are you sure you want to permanently delete ${toDelete.name}? This cannot be undone.`)) return;
+    
+    setSaving(true);
+    try {
+      await api.delete('/api/teachers/' + toDelete.id);
+      toast.success('Teacher deleted successfully');
+      setShowModal(false);
+      setEditTarget(null);
+      await fetchTeachers();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to delete teacher'));
     } finally {
       setSaving(false);
     }
@@ -300,6 +322,10 @@ export default function Teachers() {
                         className="btn btn-ghost p-1.5 text-[var(--accent)] hover:bg-[var(--accent)]/10">
                         <Edit className="w-3.5 h-3.5" />
                       </button>
+                      <button onClick={() => handleDelete(teacher)} title="Delete teacher"
+                        className="btn btn-ghost p-1.5 text-[var(--red)] hover:bg-[var(--red)]/10">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -350,7 +376,7 @@ export default function Teachers() {
                     className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--txt)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[var(--txt2)] mb-1.5 block">Phone</label>
+                  <label className="text-xs font-semibold text-[var(--txt2)] mb-1.5 block">Phone *</label>
                   <input value={form.phone} onChange={(e) => f('phone', e.target.value)} placeholder="+91 98765 00000"
                     className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--txt)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" />
                 </div>
@@ -372,8 +398,13 @@ export default function Teachers() {
             </div>
 
             <div className="p-6 pt-0 flex gap-3 justify-end border-t border-[var(--border)] mt-2">
+              {editTarget && (
+                <button onClick={() => handleDelete()} className="btn btn-ghost px-4 py-2.5 mr-auto text-[var(--red)] hover:bg-[var(--red)]/10 flex items-center justify-center" disabled={saving} title="Delete Teacher">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => setShowModal(false)} className="btn btn-ghost px-5 py-2.5" disabled={saving}>Cancel</button>
-              <button onClick={handleSave} disabled={!form.name.trim() || !form.subject.trim() || !form.email.trim() || saving}
+              <button onClick={handleSave} disabled={!form.name.trim() || !form.subject.trim() || !form.email.trim() || !form.phone.trim() || saving}
                 className="flex items-center gap-2 bg-[var(--accent)] text-black font-bold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm">
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving...' : editTarget ? 'Save Changes' : 'Add Teacher'}

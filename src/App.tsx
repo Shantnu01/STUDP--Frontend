@@ -7,6 +7,7 @@ import SignupPage from '@/pages/SignupPage'
 import LandingPage from '@/pages/LandingPage'
 import AdminLayout from '@/components/layout/AdminLayout'
 import PrincipalLayout from '@/components/layout/PrincipalLayout'
+import TeacherLayout from '@/components/layout/TeacherLayout'
 import Dashboard from '@/pages/Dashboard'
 import Schools from '@/pages/Schools'
 import Analytics from '@/pages/Analytics'
@@ -29,6 +30,19 @@ import PrincipalBulkMessage from '@/pages/principal/BulkMessage'
 import PrincipalNoticeBoard from '@/pages/principal/NoticeBoard'
 import PrincipalChat from '@/pages/principal/Chat'
 import PrincipalPayments from '@/pages/principal/Payments'
+import PrincipalLeaveRequests from '@/pages/principal/LeaveRequests'
+
+// Teacher Pages
+import TeacherDashboard    from '@/pages/teacher/Dashboard'
+import TeacherStudents     from '@/pages/teacher/Students'
+import TeacherMarks        from '@/pages/teacher/Marks'
+import TeacherAttendance   from '@/pages/teacher/Attendance'
+import TeacherAssignments  from '@/pages/teacher/Assignments'
+import TeacherAnnouncements from '@/pages/teacher/Announcements'
+import TeacherTimetable    from '@/pages/teacher/Timetable'
+import TeacherLeave        from '@/pages/teacher/Leave'
+import TeacherChat         from '@/pages/teacher/Chat'
+import TeacherSettings     from '@/pages/teacher/Settings'
 
 
 
@@ -49,74 +63,52 @@ function Spinner() {
 }
 
 /* ── Protected Route ────────────────────────────────────────────────────── */
-// SECURITY: We wait for BOTH the Firebase auth state AND the profile fetch to
-// resolve before making any routing decision. If profile is null while user is
-// set, we keep showing the spinner — never exposing content prematurely.
 function ProtectedRoute({
   children,
   reqRole,
 }: {
   children: React.ReactNode
-  reqRole: 'admin' | 'principal'
+  reqRole: 'admin' | 'principal' | 'teacher'
 }) {
   const { user, profile, loading } = useAuth()
   const [timeoutReached, setTimeoutReached] = useState(false)
 
   useEffect(() => {
-    // If the system is stuck trying to verify the session or fetch the profile
     if (loading || (user && !profile)) {
       const timer = setTimeout(() => {
         setTimeoutReached(true)
-        toast.error('Session verification timed out due to network instability. Please sign in again to continue.', { 
-          position: 'top-center',
-          duration: 5000,
-          style: {
-            background: 'var(--bg2)',
-            color: 'var(--txt)',
-            border: '1px solid var(--border)',
-            fontFamily: 'Sora, sans-serif',
-            fontSize: '13px'
-          }
+        toast.error('Session verification timed out. Please sign in again.', {
+          position: 'top-center', duration: 5000,
+          style: { background: 'var(--bg2)', color: 'var(--txt)', border: '1px solid var(--border)', fontFamily: 'Sora, sans-serif', fontSize: '13px' }
         })
-      }, 10000) // 10 seconds
+      }, 10000)
       return () => clearTimeout(timer)
     }
   }, [loading, user, profile])
 
-  if (timeoutReached) {
-    return <Navigate to="/login" replace />
-  }
-
-  // 1. Still initialising Firebase auth — wait
+  if (timeoutReached) return <Navigate to="/login" replace />
   if (loading) return <Spinner />
-
-  // 2. No authenticated user at all — redirect to login
   if (!user) return <Navigate to="/login" replace />
-
-  // 3. User is authenticated but profile hasn't loaded yet.
-  //    This can happen briefly while /api/auth/me is in-flight.
-  //    NEVER render content without a confirmed role.
   if (!profile) return <Spinner />
 
-  // 4. ── Role-based access control (RBAC) ──────────────────────────────
+  // Role-based access control
   if (reqRole === 'admin') {
-    // Only users with the 'admin' role may access admin routes
-    if (profile.role !== 'admin') {
-      // If they are a principal, redirect them to their own portal
-      if (profile.role === 'principal') return <Navigate to="/principal/dashboard" replace />
-      // Everyone else goes back to login
-      return <Navigate to="/login" replace />
-    }
+    if (profile.role === 'principal') return <Navigate to="/principal/dashboard" replace />
+    if (profile.role === 'teacher')   return <Navigate to="/teacher/dashboard" replace />
+    if (profile.role !== 'admin')     return <Navigate to="/login" replace />
   }
 
   if (reqRole === 'principal') {
-    // Admin should not be on principal routes
-    if (profile.role === 'admin') {
-      return <Navigate to="/dashboard" replace />
-    }
-    // Must be a confirmed principal with an active school
+    if (profile.role === 'admin')   return <Navigate to="/dashboard" replace />
+    if (profile.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />
     if (profile.role !== 'principal') return <Navigate to="/login" replace />
     if (profile.status === 'suspended') return <Navigate to="/login?reason=suspended" replace />
+  }
+
+  if (reqRole === 'teacher') {
+    if (profile.role === 'admin')     return <Navigate to="/dashboard" replace />
+    if (profile.role === 'principal') return <Navigate to="/principal/dashboard" replace />
+    if (profile.role !== 'teacher')   return <Navigate to="/login" replace />
   }
 
   return <>{children}</>
@@ -172,9 +164,32 @@ export default function App() {
         <Route path="noticeboard" element={<PrincipalNoticeBoard />} />
         <Route path="chat"        element={<PrincipalChat />} />
         <Route path="payments"    element={<PrincipalPayments />} />
+        <Route path="leave-requests" element={<PrincipalLeaveRequests />} />
       </Route>
 
-      {/* ── Catch-all → login, never dashboard ───────────────── */}
+      {/* ── Teacher Routes ────────────────────────────────────── */}
+      <Route
+        path="/teacher"
+        element={
+          <ProtectedRoute reqRole="teacher">
+            <TeacherLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/teacher/dashboard" replace />} />
+        <Route path="dashboard"    element={<TeacherDashboard />} />
+        <Route path="students"     element={<TeacherStudents />} />
+        <Route path="marks"        element={<TeacherMarks />} />
+        <Route path="attendance"   element={<TeacherAttendance />} />
+        <Route path="assignments"  element={<TeacherAssignments />} />
+        <Route path="announcements" element={<TeacherAnnouncements />} />
+        <Route path="timetable"    element={<TeacherTimetable />} />
+        <Route path="leave"        element={<TeacherLeave />} />
+        <Route path="chat"         element={<TeacherChat />} />
+        <Route path="settings"     element={<TeacherSettings />} />
+      </Route>
+
+      {/* ── Catch-all → login ─────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

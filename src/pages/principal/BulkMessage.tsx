@@ -1,19 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Send, Users, Check, Search, MessageSquare, AtSign, ChevronDown } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-
-const RECIPIENTS = [
-  { id: 'teacher1', name: 'Dr. Anita Rao',   subject: 'Mathematics Teacher',  email: 'anita@school.edu' },
-  { id: 'teacher2', name: 'Ms. Deepa Nair',  subject: 'English Teacher',      email: 'deepa@school.edu' },
-  { id: 'teacher3', name: 'Mr. Suresh Kumar',subject: 'Physics Teacher',      email: 'suresh@school.edu' },
-  { id: 'staff1',   name: 'Ramesh Pillai',   subject: 'Office Administrator', email: 'ramesh@school.edu' },
-  { id: 'staff2',   name: 'Kavitha Sharma',  subject: 'Librarian',            email: 'kavitha@school.edu' },
-  { id: 'staff3',   name: 'Mr. Arun Menon',  subject: 'PE Teacher',           email: 'arun@school.edu' },
-];
+import api from '@/lib/api';
 
 function makeThreadId(uidA: string, uidB: string) {
   return [uidA, uidB].sort().join('__');
@@ -27,6 +19,7 @@ const TEMPLATES = [
 ];
 
 export default function BulkMessage() {
+  const [recipients, setRecipients] = useState<{ id: string; name: string; subject: string; email: string; }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
@@ -40,14 +33,48 @@ export default function BulkMessage() {
   const myName = profile?.displayName || user?.displayName || 'Principal';
   const navigate = useNavigate();
 
-  const filtered = RECIPIENTS.filter(t =>
+  useEffect(() => {
+    async function fetchAll() {
+      try {
+        const [resT, resS] = await Promise.all([
+          api.get('/api/teachers'),
+          api.get('/api/staff')
+        ]);
+        
+        const teachers = (resT.data?.teachers || []).map((t: any) => ({
+          id: `teacher_${t.id}`,
+          name: t.name,
+          subject: t.subject || 'Teacher',
+          email: t.email
+        }));
+        
+        const staff = (resS.data?.staff || []).map((s: any) => ({
+          id: `staff_${s.id}`,
+          name: s.name,
+          subject: s.role || s.work || 'Staff',
+          email: s.email
+        }));
+        
+        // Filter out profiles with absolutely no email
+        const all = [...teachers, ...staff].filter(r => r.email && r.email.trim() !== '');
+        
+        setRecipients(all);
+      } catch (e) {
+        console.error('Failed to load secure contacts:', e);
+        toast.error('Could not load email profiles');
+      }
+    }
+    fetchAll();
+  }, []);
+
+  const filtered = recipients.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.subject.toLowerCase().includes(search.toLowerCase())
   );
 
   const toggleAll = () => {
-    if (selected.size === RECIPIENTS.length) setSelected(new Set());
-    else setSelected(new Set(RECIPIENTS.map(t => t.id)));
+    if (selected.size === recipients.length) setSelected(new Set());
+    else setSelected(new Set(recipients.map(t => t.id)));
   };
 
   const toggle = (id: string) => {
@@ -69,10 +96,9 @@ export default function BulkMessage() {
       // Log memory to Firestore chat thread for all channels
       const promises = Array.from(selected).map(targetId => {
         const threadId = makeThreadId(myUid, targetId);
-        const recipient = RECIPIENTS.find(r => r.id === targetId);
+        const recipient = recipients.find(r => r.id === targetId);
         const finalMessage = recipient ? message.replace(/\{name\}/g, recipient.name.split(' ')[0]) : message;
         
-        // Add tag if not sending strictly as app notification
         let prefix = '';
         if (channel === 'email') prefix = '📧 [Sent via Email]\n';
         if (channel === 'sms') prefix = '📱 [Sent via SMS]\n';
@@ -87,8 +113,23 @@ export default function BulkMessage() {
       });
       await Promise.all(promises);
 
-      if (channel !== 'app') {
-        // SMS or Email mock
+      // Actually trigger Real NodeMailer Integration
+      if (channel === 'email') {
+        const selectedRecipients = Array.from(selected)
+          .map(id => recipients.find(r => r.id === id))
+          .filter(Boolean)
+          .map(r => ({ email: r!.email, name: r!.name }));
+
+        await api.post('/api/email/bulk', {
+          recipients: selectedRecipients,
+          subject: subject || 'Notice from Principal',
+          message: message,
+          senderName: myName
+        });
+      }
+
+      if (channel === 'sms') {
+        // SMS Mock
         await new Promise(r => setTimeout(r, 1000));
       }
       
@@ -122,10 +163,10 @@ export default function BulkMessage() {
                 <Users className="w-4 h-4 text-[var(--accent)]" />
                 Recipients
               </div>
-              <div className="card-sub">{selected.size} of {RECIPIENTS.length} selected</div>
+              <div className="card-sub">{selected.size} of {recipients.length} eligible selected</div>
             </div>
-            <button onClick={toggleAll} className={`text-xs font-semibold px-3 py-1.5 rounded-xl transition-all ${selected.size === RECIPIENTS.length ? 'btn-danger' : 'btn btn-ghost'}`}>
-              {selected.size === RECIPIENTS.length ? 'Deselect All' : 'Select All'}
+            <button onClick={toggleAll} className={`text-xs font-semibold px-3 py-1.5 rounded-xl transition-all ${selected.size === recipients.length && recipients.length > 0 ? 'btn-danger' : 'btn btn-ghost'}`}>
+              {selected.size === recipients.length && recipients.length > 0 ? 'Deselect All' : 'Select All'}
             </button>
           </div>
 
@@ -140,34 +181,26 @@ export default function BulkMessage() {
               />
             </div>
 
-            <div className="space-y-1.5 max-h-[440px] overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-[440px] overflow-y-auto pr-1">
               {filtered.map(t => {
                 const isSelected = selected.has(t.id);
                 return (
                   <button
                     key={t.id}
                     onClick={() => toggle(t.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all border ${
                       isSelected
-                        ? 'bg-[var(--accent)]/10 border border-[var(--accent)]/30'
-                        : 'hover:bg-[var(--bg3)] border border-transparent'
+                        ? 'bg-[var(--accent)]/10 border-[var(--accent)]/20'
+                        : 'hover:bg-[var(--bg3)] border-transparent'
                     }`}
                   >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--border)]'
-                    }`}>
-                      {isSelected && <Check className="w-3 h-3 text-black" />}
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-[var(--bg3)] flex items-center justify-center font-bold text-xs text-[var(--txt2)] shrink-0">
-                      {t.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
-                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--txt)]'}`}>{t.name}</p>
-                      <p className="text-xs text-[var(--txt3)] flex items-center gap-1 mt-0.5">
-                        <AtSign className="w-3 h-3" />
+                      <p className={`text-sm font-semibold truncate ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--txt)]'}`}>{t.name}</p>
+                      <p className="text-[10px] text-[var(--txt3)] flex items-center gap-1">
                         {t.subject}
                       </p>
                     </div>
+                    {isSelected && <Check className="w-4 h-4 text-[var(--accent)]" />}
                   </button>
                 );
               })}
@@ -262,7 +295,7 @@ export default function BulkMessage() {
                 <div className="flex flex-wrap gap-2 p-3 bg-[var(--bg3)] rounded-xl">
                   <span className="text-xs text-[var(--txt3)] font-semibold self-center">To:</span>
                   {Array.from(selected).map(id => {
-                    const t = RECIPIENTS.find(x => x.id === id);
+                    const t = recipients.find(x => x.id === id);
                     return t ? (
                       <span key={id} className="text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 px-2.5 py-1 rounded-full">
                         {t.name.split(' ')[0]}

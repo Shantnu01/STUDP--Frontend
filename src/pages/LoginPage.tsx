@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import api from "@/lib/api";
 import { Eye, EyeOff } from "lucide-react";
@@ -32,12 +32,17 @@ export default function LoginPage() {
     const password = fd.get("password") as string;
 
     try {
-      const authUser = await login(email, password);
+      const authUser = await login(email, passValue); // Use passValue directly
       
       // IDENTITY GATE: Block unverified institutional accounts
       if (!authUser.user.emailVerified) {
+        try {
+          await sendEmailVerification(authUser.user);
+        } catch (verErr) {
+          console.warn("Failed or rate-limited verification dispatch:", verErr);
+        }
         await logout();
-        setErrorMsg("IDENTITY UNVERIFIED. PLEASE ACTIVATE VIA THE LINK SENT TO YOUR EMAIL.");
+        setErrorMsg("IDENTITY UNVERIFIED. AN ACTIVATION LINK HAS BEEN SENT TO YOUR INBOX.");
         setLoading(false);
         return;
       }
@@ -47,37 +52,28 @@ export default function LoginPage() {
         if (profile.role === 'admin') {
           navigate("/dashboard", { replace: true });
         } else {
+          // If a teacher lands here, we should redirect them to the teacher portal,
+          // but for now, we follow the principal flow or show error.
           navigate("/principal/dashboard", { replace: true });
         }
       } catch (profileErr: any) {
-        // AUTO-BIRTH: If verified but no DB record exists, create it now
-        const cached = localStorage.getItem(`pending_reg_${email}`);
-        if (cached) {
-          try {
-            const data = JSON.parse(cached);
-            await api.post('/api/registrations', {
-              schoolName: data.schoolName,
-              city: data.city,
-              contactName: data.role,
-              email: email,
-              phone: data.phone,
-              students: 0,
-              plan: 'Standard',
-              uid: authUser.user.uid
-            });
-            setErrorMsg("PROTOCOL INITIALIZED. PENDING ADMIN APPROVAL.");
-            localStorage.removeItem(`pending_reg_${email}`);
-          } catch (regErr) {
-            setErrorMsg("SYSTEM INITIALIZATION FAILED. CONTACT SUPPORT.");
-          }
+        // Handle specific backend errors (e.g., role mismatch or missing profile)
+        if (profileErr.response?.status === 403) {
+          setErrorMsg(profileErr.response.data?.message || "ACCOUNT NOT PROVISIONED OR ROLE MISMATCH.");
         } else {
-          setErrorMsg("NO INSTITUTIONAL PROFILE FOUND. PLEASE REGISTER.");
+          setErrorMsg("BACKEND UNREACHABLE. PLEASE TRY AGAIN LATER.");
         }
         await logout();
         setLoading(false);
       }
     } catch (e: any) {
-      setErrorMsg("INVALID CREDENTIALS. PLEASE TRY AGAIN.");
+      if (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
+        setErrorMsg("INVALID CREDENTIALS. PLEASE CHECK YOUR EMAIL AND PASSWORD.");
+      } else if (e.code === 'auth/too-many-requests') {
+        setErrorMsg("TOO MANY FAILED ATTEMPTS. ACCOUNT TEMPORARILY LOCKED.");
+      } else {
+        setErrorMsg("AUTHENTICATION FAILED. PLEASE TRY AGAIN.");
+      }
       setLoading(false);
     }
   };
@@ -91,12 +87,14 @@ export default function LoginPage() {
         const { data: profile } = await api.get('/api/auth/me');
         if (profile.role === 'admin') {
           navigate("/dashboard", { replace: true });
+        } else if (profile.role === 'teacher') {
+          navigate("/teacher/dashboard", { replace: true });
         } else {
           navigate("/principal/dashboard", { replace: true });
         }
       } catch (profileErr: any) {
         await logout();
-        setErrorMsg("NO ACCOUNT FOUND. PLEASE REGISTER.");
+        setErrorMsg(profileErr.response?.data?.message || "NO ACCOUNT FOUND. PLEASE REGISTER.");
         setLoading(false);
       }
     } catch (e: any) {
@@ -138,7 +136,7 @@ export default function LoginPage() {
             <form onSubmit={handleSignIn} className="login-form">
               <div className="input-group">
                 <label>Email Address</label>
-                <input name="email" type="email" placeholder="e.g. xyz@gmail.com" required autoComplete="new-email" readOnly onFocus={(e) => e.target.readOnly = false} />
+                <input name="email" type="email" placeholder="e.g. xyz@gmail.com" required autoComplete="email" />
               </div>
               <div className="input-group">
                 <label>Security Key</label>
@@ -151,7 +149,6 @@ export default function LoginPage() {
                     onChange={(e) => setPassValue(e.target.value)}
                     required
                     autoComplete="current-password"
-                    readOnly onFocus={(e) => e.target.readOnly = false}
                   />
                   <button
                     type="button"

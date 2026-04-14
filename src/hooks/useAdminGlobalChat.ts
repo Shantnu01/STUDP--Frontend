@@ -10,7 +10,8 @@ export function useAdminGlobalChat(schools: School[]) {
   const myUid = user?.uid ?? ''
   const { lastRead } = useChatStore()
   
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  // Store snapshot data locally per school so we avoid resubscribing when lastRead updates
+  const [docsMap, setDocsMap] = useState<Record<string, any[]>>({})
 
   useEffect(() => {
     if (!myUid || schools.length === 0) return
@@ -23,33 +24,39 @@ export function useAdminGlobalChat(schools: School[]) {
       )
       
       return onSnapshot(q, (snap) => {
-        if (snap.empty) {
-          setUnreadCounts(prev => ({ ...prev, [school.id]: 0 }))
-          return
-        }
-        
-        let unread = 0
-        for (const doc of snap.docs) {
-          const d = doc.data()
-          const tsMillis = d.ts?.toMillis() || 0
-          
-          const isMe = d.senderId === 'admin' || d.sender === 'admin' || d.senderId === myUid
-
-          if (tsMillis <= (lastRead[school.id] || 0)) {
-            break
-          }
-          if (!isMe) {
-            unread++
-          }
-        }
-
-        setUnreadCounts(prev => ({ ...prev, [school.id]: unread }))
+        const docsData = snap.docs.map(doc => doc.data())
+        setDocsMap(prev => ({ ...prev, [school.id]: docsData }))
       })
     })
 
     return () => unsubs.forEach(u => u())
-  }, [myUid, schools, lastRead])
+  }, [myUid, schools])
 
-  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0)
+  // Process unread dynamically
+  const unreadCounts: Record<string, number> = {}
+  let totalUnread = 0
+
+  for (const school of schools) {
+    const docs = docsMap[school.id] || []
+    let unread = 0
+    const schoolLastRead = lastRead[school.id] || 0
+
+    for (const d of docs) {
+      const tsMillis = d.ts?.toMillis ? d.ts.toMillis() : 0
+      const isMe = d.senderId === 'admin' || d.sender === 'admin' || d.senderId === myUid
+
+      // If we reach a message that has a confirmed timestamp older or equal to our lastRead, stop.
+      if (tsMillis > 0 && tsMillis <= schoolLastRead) {
+        break
+      }
+      
+      if (!isMe) unread++
+    }
+    
+    unreadCounts[school.id] = unread
+    totalUnread += unread
+  }
+
   return { totalUnread, unreadCounts }
 }
+

@@ -147,32 +147,43 @@ export default function Events() {
            )}
 
            <div className="space-y-3">
-              {filteredEvents.length === 0 ? (
-                 <div className="card p-12 text-center text-[var(--txt3)]">No events found.</div>
-              ) : (
-                 filteredEvents.map(e => {
-                    const cfg = CATEGORY_CONFIG[e.category];
-                    const Icon = cfg.icon;
-                    return (
-                       <div key={e.id} className="card p-5 group hover:border-[var(--accent)]/40 transition-all">
-                          <div className="flex items-start gap-4">
-                             <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${cfg.cls}`}><Icon size={18} /></div>
-                             <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start gap-2">
-                                   <div className="font-bold text-[var(--txt)] truncate">{e.title}</div>
-                                   <button onClick={() => openEdit(e)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--accent)] transition-all hover:bg-[var(--accent)]/10 rounded-lg"><Edit2 size={13} /></button>
-                                </div>
-                                <div className="text-sm text-[var(--txt2)] mt-1 line-clamp-2">{e.description}</div>
-                                <div className="flex items-center gap-4 mt-3 flex-wrap">
-                                   <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--txt3)]"><Clock size={12} /> {fmtEventTime(e.time)}</div>
-                                   <div className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-[var(--border)] text-[var(--txt3)] bg-[var(--bg3)]">{e.audience}</div>
-                                </div>
-                             </div>
-                          </div>
-                       </div>
-                    );
-                 })
-              )}
+               {filteredEvents.length === 0 ? (
+                  <div className="card p-12 text-center text-[var(--txt3)] border-dashed">No events found for this selection.</div>
+               ) : (
+                  filteredEvents.map(e => {
+                     const cfg = CATEGORY_CONFIG[e.category];
+                     const Icon = cfg.icon;
+                     return (
+                        <div key={e.id} className="card p-4 hover:bg-[var(--bg3)]/30 transition-all border-l-4" style={{ borderColor: cfg.cls.split(' ')[1].split('/')[0].replace('bg-', '') }}>
+                           <div className="flex items-center gap-4">
+                              <div className="flex-1 min-w-0">
+                                 <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-bold text-sm text-[var(--txt)]">{e.title}</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${cfg.cls}`}>
+                                       {cfg.label}
+                                    </span>
+                                 </div>
+                                 <div className="text-xs text-[var(--txt2)] line-clamp-1">{e.description}</div>
+                                 <div className="flex items-center gap-3 mt-2">
+                                    <div className="flex items-center gap-1 text-[10px] text-[var(--txt3)] font-mono">
+                                       <CalendarDays size={10} /> {new Date(e.date).toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[10px] text-[var(--txt3)] font-mono">
+                                       <Clock size={10} /> {fmtEventTime(e.time)}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--txt3)] bg-[var(--bg2)] px-2 py-0.5 rounded border border-[var(--border)]">
+                                       {e.audience}
+                                    </div>
+                                 </div>
+                              </div>
+                              <button onClick={() => openEdit(e)} className="p-2 text-[var(--txt3)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-lg transition-all">
+                                 <Edit2 size={14} />
+                              </button>
+                           </div>
+                        </div>
+                     );
+                  })
+               )}
            </div>
         </div>
       </div>

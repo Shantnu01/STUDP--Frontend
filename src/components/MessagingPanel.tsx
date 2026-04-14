@@ -30,9 +30,13 @@ export default function MessagingPanel({ schools, initialSchoolId, onClose }: Pr
   useEffect(() => {
     msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     if (selectedId && messages.length > 0) {
-      const lastMsg = messages[messages.length - 1]
-      if (lastMsg.ts) {
-        setLastRead(selectedId, lastMsg.ts.toMillis())
+      const highestTs = messages.reduce((max, m) => {
+        const ms = m.ts?.toMillis ? m.ts.toMillis() : 0
+        return ms > max ? ms : max
+      }, 0)
+
+      if (highestTs > 0) {
+        setLastRead(selectedId, highestTs)
       }
     }
   }, [messages, selectedId, setLastRead])
