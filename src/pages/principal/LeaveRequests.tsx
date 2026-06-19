@@ -1,48 +1,19 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-
-interface LeaveRequest {
-  id: string;
-  user_name: string;
-  role: string;
-  leave_type: string;
-  start_date: string;
-  end_date: string;
-  reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  applied_at: string;
-}
+import { usePrincipalLeaveRequests } from '@/hooks/useComms';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function LeaveRequests() {
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
+  const { requests, loading } = usePrincipalLeaveRequests(profile?.schoolId);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const loadRequests = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ leaveRequests: LeaveRequest[] }>('/api/leave/principal');
-      setRequests(res.data.leaveRequests || []);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load leave requests.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadRequests();
-  }, []);
 
   const handleUpdateStatus = async (id: string, newStatus: 'Approved' | 'Rejected') => {
     setBusy(id);
     try {
       await api.patch(`/api/leave/${id}/status`, { status: newStatus });
       toast.success(`Request ${newStatus.toLowerCase()} successfully`);
-      setRequests((prev) => 
-        prev.map((req) => req.id === id ? { ...req, status: newStatus } : req)
-      );
     } catch (error: any) {
       toast.error(error.response?.data?.error || `Failed to ${newStatus.toLowerCase()} request`);
     } finally {
@@ -57,10 +28,6 @@ export default function LeaveRequests() {
           <h1 className="text-3xl font-bold tracking-tight">Leave Requests</h1>
           <p className="text-[var(--txt2)] mt-1">Review and manage staff leave applications.</p>
         </div>
-        <button onClick={loadRequests} disabled={loading}
-          className="px-5 py-2.5 bg-[var(--bg3)] text-[var(--txt)] border border-[var(--border)] hover:bg-[var(--bg4)] font-bold rounded-xl text-sm disabled:opacity-40 transition-all">
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
       </header>
 
       <div className="card w-full overflow-hidden border border-[var(--border)]">
@@ -103,7 +70,7 @@ export default function LeaveRequests() {
                     </td>
                     <td>
                       <div className="flex flex-col gap-1">
-                        <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-[var(--bg3)] text-[var(--txt)] w-max">
+                        <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-[var(--bg3)] text-[var(--txt)] w-max capitalize">
                           {req.leave_type}
                         </span>
                         <span className="text-xs text-[var(--txt2)] mono mt-1">

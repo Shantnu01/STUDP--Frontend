@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalUnread } from '@/hooks/useGlobalChat';
+import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import toast from 'react-hot-toast';
 
 const NAV_SECTIONS = [
   {
@@ -200,11 +203,52 @@ export default function PrincipalLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications] = useState([
-    { id: 1, text: 'New fee payment received from Grade 10-A', time: '5m ago', read: false },
-    { id: 2, text: 'Staff meeting scheduled for tomorrow 10 AM', time: '1h ago', read: false },
-    { id: 3, text: 'Attendance alert: Grade 9-B below 75%', time: '3h ago', read: true },
+  const [notifications, setNotifications] = useState([
+    { id: '1', text: 'New fee payment received from Grade 10-A', time: '5m ago', read: false },
+    { id: '2', text: 'Staff meeting scheduled for tomorrow 10 AM', time: '1h ago', read: false },
+    { id: '3', text: 'Attendance alert: Grade 9-B below 75%', time: '3h ago', read: true },
   ]);
+
+  // Real-time listener for new Leave Requests
+  useEffect(() => {
+    if (!profile?.schoolId) return;
+
+    const startTs = new Date().toISOString(); // Only notify for new ones from now
+    const q = query(
+      collection(db, 'leaveRequests'),
+      where('school_id', '==', profile.schoolId),
+      where('applied_at', '>=', startTs),
+      orderBy('applied_at', 'desc'),
+      limit(5)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      snap.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          // Avoid notifying for the initial load of existing records
+          // Firestore onSnapshot triggers 'added' for all initial results
+          // But our 'applied_at >= startTs' query should handle that mostly.
+          
+          const msg = `Leave application from ${data.user_name}`;
+          toast.success(msg, { icon: '📝', duration: 4000 });
+          
+          setNotifications(prev => [
+            {
+              id: change.doc.id,
+              text: msg,
+              time: 'Just now',
+              read: false
+            },
+            ...prev
+          ].slice(0, 10)); // Keep last 10
+        }
+      });
+    });
+
+    return unsub;
+  }, [profile?.schoolId]);
+
   const sysUnreadCount = notifications.filter(n => !n.read).length;
 
   const { totalUnread } = useGlobalUnread();

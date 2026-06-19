@@ -32,7 +32,7 @@ export default function LoginPage() {
     const password = fd.get("password") as string;
 
     try {
-      const authUser = await login(email, passValue); // Use passValue directly
+      const authUser = await login(email, password || passValue);
       
       // IDENTITY GATE: Block unverified institutional accounts
       if (!authUser.user.emailVerified) {

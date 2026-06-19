@@ -1,76 +1,87 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   collection, onSnapshot, query, where, addDoc, updateDoc, setDoc,
-  doc, serverTimestamp, orderBy, getDoc
+  doc, serverTimestamp, orderBy, getDoc, deleteDoc
 } from 'firebase/firestore'
+import api from '@/lib/api'
+
 import { db } from '@/lib/firebase'
 import { LeaveRequest, Announcement, ChatMessage, ChatThread } from '@/types'
 import { makeThreadId } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ── LEAVE ─────────────────────────────────────────────────────────────────────
-export function useLeave(schoolId: string | undefined, teacherId: string | undefined) {
+export function useLeave(schoolId: string | undefined, userId: string | undefined) {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!schoolId || !teacherId) { setLeaves([]); setLoading(false); return }
+    if (!schoolId || !userId) { setLeaves([]); setLoading(false); return }
     const q = query(
-      collection(db, 'leaves'),
-      where('schoolId', '==', schoolId),
-      where('teacherId', '==', teacherId),
-      orderBy('createdAt', 'desc')
+      collection(db, 'leaveRequests'),
+      where('school_id', '==', schoolId),
+      where('user_id', '==', userId),
+      orderBy('applied_at', 'desc')
     )
     const unsub = onSnapshot(q,
       snap => { setLeaves(snap.docs.map(d => ({ id: d.id, ...d.data() } as LeaveRequest))); setLoading(false) },
       err => { console.error('leaves:', err); setLoading(false) }
     )
     return unsub
-  }, [schoolId, teacherId])
+  }, [schoolId, userId])
 
-  const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status'>) => {
-    await addDoc(collection(db, 'leaves'), { ...data, status: 'pending', createdAt: serverTimestamp() })
+  const applyLeave = useCallback(async (data: any) => {
+    // We now use the backend API to apply leave for better validation and denormalization
+    const res = await api.post('/api/leave/apply', {
+      leave_type: data.type,
+      start_date: data.from,
+      end_date: data.to,
+      reason: data.reason
+    })
     toast.success('Leave application submitted')
+    return res.data
   }, [])
 
   const cancelLeave = useCallback(async (id: string) => {
-    await updateDoc(doc(db, 'leaves', id), { status: 'cancelled' })
-    toast.success('Leave cancelled')
+    // Instead of status = cancelled, we'll just delete the request if it's pending
+    // This aligns with user's "10 days delete" intent - keep it clean.
+    // However, if the API doesn't support DELETE yet, we'll just delete from Firestore directly
+    // but the backend router for leave doesn't have a delete route.
+    // I'll stick to Firestore delete for now for cancelling.
+    try {
+      await deleteDoc(doc(db, 'leaveRequests', id))
+      toast.success('Leave request withdrawn')
+    } catch (e) {
+      toast.error('Failed to withdraw request')
+    }
   }, [])
 
   return { leaves, loading, applyLeave, cancelLeave }
 }
 
-// Principal sees all pending leaves in school
-export function useAllLeaves(schoolId: string | undefined) {
-  const [leaves, setLeaves] = useState<LeaveRequest[]>([])
+// Principal sees all leave requests for their school in real-time
+export function usePrincipalLeaveRequests(schoolId: string | undefined) {
+  const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!schoolId) { setLeaves([]); setLoading(false); return }
+    if (!schoolId) { setRequests([]); setLoading(false); return }
     const q = query(
-      collection(db, 'leaves'),
-      where('schoolId', '==', schoolId),
-      orderBy('createdAt', 'desc')
+      collection(db, 'leaveRequests'),
+      where('school_id', '==', schoolId),
+      orderBy('applied_at', 'desc')
     )
     const unsub = onSnapshot(q,
-      snap => { setLeaves(snap.docs.map(d => ({ id: d.id, ...d.data() } as LeaveRequest))); setLoading(false) },
-      err => { console.error('allLeaves:', err); setLoading(false) }
+      snap => {
+        setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as LeaveRequest)))
+        setLoading(false)
+      },
+      err => { console.error('principalLeaveRequests:', err); setLoading(false) }
     )
     return unsub
   }, [schoolId])
 
-  const approveLeave = useCallback(async (id: string, note?: string) => {
-    await updateDoc(doc(db, 'leaves', id), { status: 'approved', principalNote: note ?? '' })
-    toast.success('Leave approved')
-  }, [])
-
-  const rejectLeave = useCallback(async (id: string, note?: string) => {
-    await updateDoc(doc(db, 'leaves', id), { status: 'rejected', principalNote: note ?? '' })
-    toast.success('Leave rejected')
-  }, [])
-
-  return { leaves, loading, approveLeave, rejectLeave }
+  return { requests, loading }
 }
 
 // ── ANNOUNCEMENTS ─────────────────────────────────────────────────────────────

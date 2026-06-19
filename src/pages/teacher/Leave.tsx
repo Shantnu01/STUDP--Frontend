@@ -55,65 +55,70 @@ export default function Leave() {
   const today = todayISO()
 
   const stats = useMemo(() => ({
-    pending:  leaves.filter(l => l.status === 'pending').length,
-    approved: leaves.filter(l => l.status === 'approved').length,
-    rejected: leaves.filter(l => l.status === 'rejected').length,
+    pending:  leaves.filter(l => l.status === 'Pending').length,
+    approved: leaves.filter(l => l.status === 'Approved').length,
+    rejected: leaves.filter(l => l.status === 'Rejected').length,
     totalDays: leaves
-      .filter(l => l.status === 'approved')
-      .reduce((a, l) => a + (l.days ?? 0), 0),
+      .filter(l => l.status === 'Approved')
+      .reduce((a, l) => a + (daysBetween(l.start_date, l.end_date)), 0),
   }), [leaves])
 
   const groups = useMemo(() => ({
-    pending:  leaves.filter(l => l.status === 'pending'),
-    approved: leaves.filter(l => l.status === 'approved'),
-    rejected: leaves.filter(l => l.status === 'rejected'),
+    pending:  leaves.filter(l => l.status === 'Pending'),
+    approved: leaves.filter(l => l.status === 'Approved'),
+    rejected: leaves.filter(l => l.status === 'Rejected'),
   }), [leaves])
 
-  const LeaveCard = ({ l }: { l: any }) => (
-    <div className="card" style={{ padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: l.status === 'approved' ? 'rgba(52,211,153,.12)' : l.status === 'rejected' ? 'rgba(248,113,113,.12)' : 'rgba(251,191,36,.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Calendar size={16} color={l.status === 'approved' ? 'var(--green)' : l.status === 'rejected' ? 'var(--red)' : 'var(--amber)'} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
-            <span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span>
-            <span className="badge badge-gray">{LEAVE_LABELS[l.type as LeaveType] ?? l.type}</span>
-            <span style={{ fontSize: 11, fontFamily: 'DM Mono,monospace', color: 'var(--txt2)' }}>
-              {l.days} day{l.days !== 1 ? 's' : ''}
-            </span>
+  const LeaveCard = ({ l }: { l: any }) => {
+    const days = daysBetween(l.start_date, l.end_date)
+    const status = l.status.toLowerCase()
+    
+    return (
+      <div className="card" style={{ padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: status === 'approved' ? 'rgba(52,211,153,.12)' : status === 'rejected' ? 'rgba(248,113,113,.12)' : 'rgba(251,191,36,.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Calendar size={16} color={status === 'approved' ? 'var(--green)' : status === 'rejected' ? 'var(--red)' : 'var(--amber)'} />
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-            {fmtDate(l.from)} — {fmtDate(l.to)}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--txt2)', lineHeight: 1.5 }}>{l.reason}</div>
-          {l.principalNote && (
-            <div style={{
-              marginTop: 8, fontSize: 11, color: 'var(--accent)',
-              background: 'rgba(167,139,250,.08)', border: '1px solid rgba(167,139,250,.2)',
-              borderRadius: 7, padding: '7px 11px', lineHeight: 1.5,
-            }}>
-              <span style={{ fontWeight: 600, fontFamily: 'DM Mono,monospace', fontSize: 10 }}>PRINCIPAL: </span>
-              {l.principalNote}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 5 }}>
+              <span className={`badge ${statusBadgeClass(status)}`}>{l.status}</span>
+              <span className="badge badge-gray">{LEAVE_LABELS[l.leave_type as LeaveType] ?? l.leave_type}</span>
+              <span style={{ fontSize: 11, fontFamily: 'DM Mono,monospace', color: 'var(--txt2)' }}>
+                {days} day{days !== 1 ? 's' : ''}
+              </span>
             </div>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              {fmtDate(l.start_date)} — {fmtDate(l.end_date)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--txt2)', lineHeight: 1.5 }}>{l.reason}</div>
+            {l.principalNote && (
+              <div style={{
+                marginTop: 8, fontSize: 11, color: 'var(--accent)',
+                background: 'rgba(167,139,250,.08)', border: '1px solid rgba(167,139,250,.2)',
+                borderRadius: 7, padding: '7px 11px', lineHeight: 1.5,
+              }}>
+                <span style={{ fontWeight: 600, fontFamily: 'DM Mono,monospace', fontSize: 10 }}>PRINCIPAL: </span>
+                {l.principalNote}
+              </div>
+            )}
+          </div>
+          {l.status === 'Pending' && (
+            <button
+              className="btn btn-danger btn-xs"
+              style={{ flexShrink: 0 }}
+              onClick={() => { if (confirm('Withdraw this leave application?')) cancelLeave(l.id) }}
+            >
+              <X size={10} /> Withdraw
+            </button>
           )}
         </div>
-        {l.status === 'pending' && (
-          <button
-            className="btn btn-danger btn-xs"
-            style={{ flexShrink: 0 }}
-            onClick={() => { if (confirm('Cancel this leave application?')) cancelLeave(l.id) }}
-          >
-            <X size={10} /> Cancel
-          </button>
-        )}
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

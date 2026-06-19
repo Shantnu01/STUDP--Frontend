@@ -64,7 +64,7 @@ export interface DashboardMetrics {
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 export type AssignmentStatus = 'draft' | 'published' | 'closed'
-export type LeaveStatus = 'pending' | 'approved' | 'rejected'
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected'
 
 export interface Teacher {
   id: string; uid: string; schoolId: string; name: string; email: string
@@ -108,10 +108,20 @@ export interface Announcement {
 }
 
 export interface LeaveRequest {
-  id: string; teacherId: string; teacherName: string; schoolId: string
-  type: 'sick' | 'casual' | 'earned' | 'emergency' | 'other'
-  from: string; to: string; days: number; reason: string
-  status: LeaveStatus; principalNote?: string; createdAt?: any
+  id: string
+  user_id: string
+  user_name: string
+  role: string
+  school_id: string
+  leave_type: 'sick' | 'casual' | 'earned' | 'emergency' | 'other'
+  start_date: string
+  end_date: string
+  reason: string
+  status: LeaveStatus
+  applied_at: string
+  reviewed_at?: string | null
+  reviewed_by?: string | null
+  principalNote?: string
 }
 
 export interface ChatThread {
