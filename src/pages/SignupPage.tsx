@@ -68,10 +68,22 @@ export default function SignupPage() {
       // Step 1: Create Account in Firebase
       const authUser = await registerUser(form.email, form.password, form.role);
       
-      // Step 2: Send Official Institutional Verification Link
+      // Step 2: Create Registration Request in Firestore
+      await api.post('/api/registrations', {
+        schoolName:  form.schoolName,
+        city:        form.address,
+        email:       form.email,
+        contactName: form.role || 'Principal',
+        phone:       `${form.countryCode}${form.number}`,
+        uid:         authUser.uid,
+        students:    100,
+        plan:        'Starter'
+      });
+
+      // Step 3: Send Official Institutional Verification Link
       await sendEmailVerification(authUser);
 
-      // Step 3: Cache Institutional Identity (Airlock Security)
+      // Step 4: Cache Institutional Identity (Airlock Security)
       // We do NOT store this in the database yet to keep the Admin portal clean.
       // This data will be "born" into the DB only after verified login.
       const pendingData = {
@@ -82,10 +94,10 @@ export default function SignupPage() {
       };
       localStorage.setItem(`pending_reg_${form.email}`, JSON.stringify(pendingData));
 
-      // Step 4: Secure Logout (Wait for verification)
+      // Step 5: Secure Logout (Wait for verification)
       await logout();
       
-      // Step 5: Show Verification Sent UI
+      // Step 6: Show Verification Sent UI
       setShowVerificationModal(true);
     } catch (err: any) {
       setErrorMsg(err.message || "Institutional initialization failed. Please try again.");
